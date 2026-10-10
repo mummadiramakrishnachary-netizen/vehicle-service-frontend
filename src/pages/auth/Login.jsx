@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../../api/auth";
-import api from "../../api/api";
+import { loginUser, registerUser } from "../../api/auth";
 import { useAuth } from "../../context/AuthContext";
 
 function Login() {
@@ -65,12 +64,13 @@ function Login() {
       navigate(destinations[user.role], { replace: true });
     } catch (err) {
       console.error("Login error:", err);
+
       setError(
         err.response?.data?.message ||
           err.response?.data?.error ||
           (err.response
             ? "Invalid email or password."
-            : "Unable to connect to backend. Check that the backend is running.")
+            : "Unable to connect to backend. Please try again.")
       );
     } finally {
       setLoading(false);
@@ -89,7 +89,7 @@ function Login() {
     setLoading(true);
 
     try {
-      await api.post("/auth/register", {
+      await registerUser({
         name: name.trim(),
         email: email.trim(),
         password,
@@ -101,12 +101,13 @@ function Login() {
       setPassword("");
     } catch (err) {
       console.error("Registration error:", err);
+
       setError(
         err.response?.data?.message ||
           err.response?.data?.error ||
           (err.response
             ? "Unable to create account. Please check your details."
-            : "Unable to connect to backend. Check that the backend is running.")
+            : "Unable to connect to backend. Please try again.")
       );
     } finally {
       setLoading(false);
@@ -328,13 +329,11 @@ const styles = {
     color: "#142342",
     boxSizing: "border-box",
   },
-
   layout: {
     minHeight: "100vh",
     display: "grid",
     gridTemplateColumns: "minmax(0, 1fr) minmax(0, 0.9fr)",
   },
-
   hero: {
     background:
       "radial-gradient(ellipse at 15% 85%, #174b89 0%, transparent 45%), linear-gradient(145deg, #07172f, #102e55 65%, #173d70)",
@@ -346,13 +345,11 @@ const styles = {
     gap: "35px",
     boxSizing: "border-box",
   },
-
   brand: {
     display: "flex",
     alignItems: "center",
     gap: "18px",
   },
-
   logo: {
     width: "62px",
     height: "62px",
@@ -365,7 +362,6 @@ const styles = {
     color: "#60a5fa",
     fontSize: "39px",
   },
-
   brandTitle: {
     fontSize: "clamp(22px, 2.4vw, 34px)",
     lineHeight: 1.2,
@@ -373,54 +369,28 @@ const styles = {
     fontWeight: 800,
     letterSpacing: "-0.8px",
   },
-
-  blueText: {
-    color: "#60a5fa",
-  },
-
-  tagline: {
-    color: "#bdcce2",
-    fontSize: "14px",
-    marginBottom: 0,
-  },
-
-  heroContent: {
-    maxWidth: "520px",
-    margin: "35px 0",
-  },
-
+  blueText: { color: "#60a5fa" },
+  tagline: { color: "#bdcce2", fontSize: "14px", marginBottom: 0 },
+  heroContent: { maxWidth: "520px", margin: "35px 0" },
   carIcon: {
     fontSize: "clamp(65px, 8vw, 105px)",
     marginBottom: "18px",
     filter: "drop-shadow(0 12px 18px rgba(0,0,0,0.25))",
   },
-
   heroTitle: {
     fontSize: "clamp(30px, 3.5vw, 48px)",
     lineHeight: 1.15,
     letterSpacing: "-1.5px",
     margin: "0 0 18px",
   },
-
   heroDescription: {
     color: "#c4d3e8",
     fontSize: "16px",
     lineHeight: 1.8,
     maxWidth: "420px",
   },
-
-  features: {
-    display: "grid",
-    gap: "23px",
-    marginTop: "35px",
-  },
-
-  feature: {
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-  },
-
+  features: { display: "grid", gap: "23px", marginTop: "35px" },
+  feature: { display: "flex", alignItems: "center", gap: "15px" },
   featureIcon: {
     display: "grid",
     placeItems: "center",
@@ -433,18 +403,12 @@ const styles = {
     fontWeight: 800,
     fontSize: "19px",
   },
-
-  featureText: {
-    color: "#ffffff",
-  },
-
   heroFooter: {
     color: "#8fa9cb",
     fontSize: "11px",
     letterSpacing: "2px",
     margin: 0,
   },
-
   rightPanel: {
     padding: "clamp(18px, 4vw, 55px)",
     display: "flex",
@@ -454,7 +418,6 @@ const styles = {
     background:
       "radial-gradient(ellipse at top right, #dceaff, transparent 55%), #f5f8fd",
   },
-
   card: {
     width: "100%",
     maxWidth: "460px",
@@ -465,11 +428,7 @@ const styles = {
     border: "1px solid #e7edf6",
     boxSizing: "border-box",
   },
-
-  mobileLogo: {
-    display: "none",
-  },
-
+  mobileLogo: { display: "none" },
   headingIcon: {
     width: "54px",
     height: "54px",
@@ -482,7 +441,6 @@ const styles = {
     fontWeight: 800,
     marginBottom: "22px",
   },
-
   heading: {
     color: "#102344",
     fontSize: "clamp(27px, 3vw, 34px)",
@@ -490,30 +448,15 @@ const styles = {
     letterSpacing: "-1px",
     margin: "0 0 10px",
   },
-
   subtitle: {
     color: "#6b7b95",
     lineHeight: 1.7,
     fontSize: "14px",
     margin: "0 0 30px",
   },
-
-  form: {
-    display: "grid",
-    gap: "21px",
-  },
-
-  formGroup: {
-    display: "grid",
-    gap: "9px",
-  },
-
-  label: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#273957",
-  },
-
+  form: { display: "grid", gap: "21px" },
+  formGroup: { display: "grid", gap: "9px" },
+  label: { fontSize: "13px", fontWeight: 700, color: "#273957" },
   input: {
     width: "100%",
     height: "49px",
@@ -526,7 +469,6 @@ const styles = {
     fontSize: "14px",
     outlineColor: "#2563eb",
   },
-
   primaryButton: {
     width: "100%",
     minHeight: "51px",
@@ -539,7 +481,6 @@ const styles = {
     marginTop: "5px",
     boxShadow: "0 7px 16px rgba(37, 99, 235, 0.2)",
   },
-
   secondaryButton: {
     width: "100%",
     minHeight: "49px",
@@ -551,25 +492,19 @@ const styles = {
     fontWeight: 750,
     cursor: "pointer",
   },
-
   separator: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
     margin: "26px 0 19px",
   },
-
-  separatorLine: {
-    background: "#e3eaf4",
-  },
-
+  separatorLine: { background: "#e3eaf4" },
   privacy: {
     textAlign: "center",
     color: "#92a0b5",
     fontSize: "11px",
     margin: "23px 0 0",
   },
-
   success: {
     marginTop: "18px",
     padding: "12px",
@@ -579,7 +514,6 @@ const styles = {
     fontSize: "13px",
     lineHeight: 1.6,
   },
-
   error: {
     marginTop: "18px",
     padding: "12px",
