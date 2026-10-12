@@ -21,10 +21,12 @@ function AdminDashboard() {
     setLoading(true);
     setError("");
 
-    const results = await Promise.allSettled([
-      api.get("/api/bookings/all"),
-      api.get("/api/mechanic"),
-    ]);
+   
+const results = await Promise.allSettled([
+  api.get("/api/bookings/all"),
+  api.get("/api/admin/mechanics"),
+]);
+
 
     if (results[0].status === "fulfilled") {
       const data = results[0].value.data;
