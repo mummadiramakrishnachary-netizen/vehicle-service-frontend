@@ -9,6 +9,8 @@ function AdminDashboard() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
+  const [assigningBookingId, setAssigningBookingId] = useState(null);
+  const [selectedMechanics, setSelectedMechanics] = useState({});
 
   const [form, setForm] = useState({
     name: "",
@@ -21,37 +23,39 @@ function AdminDashboard() {
     setLoading(true);
     setError("");
 
-   
-const results = await Promise.allSettled([
-  api.get("/api/bookings/all"),
-  api.get("/api/admin/mechanics"),
-]);
+    try {
+      const results = await Promise.allSettled([
+        api.get("/api/bookings/all"),
+        api.get("/api/admin/mechanics"),
+      ]);
 
+      if (results[0].status === "fulfilled") {
+        const data = results[0].value.data;
+        setBookings(Array.isArray(data) ? data : []);
+      } else {
+        setBookings([]);
+        setError(
+          results[0].reason.response?.data?.message ||
+            "Could not load bookings. Check your ADMIN login."
+        );
+      }
 
-    if (results[0].status === "fulfilled") {
-      const data = results[0].value.data;
-      setBookings(Array.isArray(data) ? data : []);
-    } else {
-      setBookings([]);
-      setError(
-        results[0].reason.response?.data?.message ||
-          "Could not load bookings. Check your ADMIN login."
-      );
+      if (results[1].status === "fulfilled") {
+        const data = results[1].value.data;
+        setMechanics(Array.isArray(data) ? data : []);
+      } else {
+        setMechanics([]);
+        setError((previous) =>
+          previous ||
+          results[1].reason.response?.data?.message ||
+          "Could not load mechanics."
+        );
+      }
+    } catch {
+      setError("Could not refresh the dashboard. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    if (results[1].status === "fulfilled") {
-      const data = results[1].value.data;
-      setMechanics(Array.isArray(data) ? data : []);
-    } else {
-      setMechanics([]);
-      setError((previous) =>
-        previous ||
-        results[1].reason.response?.data?.message ||
-        "Could not load mechanics."
-      );
-    }
-
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -109,10 +113,72 @@ const results = await Promise.allSettled([
     }
   };
 
+  const assignMechanic = async (bookingId) => {
+    const mechanicId = selectedMechanics[bookingId];
+
+    if (!mechanicId) {
+      setError("Please select an available mechanic first.");
+      setMessage("");
+      return;
+    }
+
+    const selectedMechanic = mechanics.find(
+      (mechanic) =>
+        String(mechanic.id) === String(mechanicId) &&
+        mechanic.available === true
+    );
+
+    if (!selectedMechanic) {
+      setError("This mechanic is no longer available. Refresh the dashboard.");
+      setMessage("");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setAssigningBookingId(bookingId);
+
+    try {
+      await api.put(
+        `/api/bookings/${bookingId}/assign-mechanic/${mechanicId}`
+      );
+
+      setMessage(
+        `Mechanic ${selectedMechanic.name} assigned successfully to Booking #${bookingId}.`
+      );
+
+      setSelectedMechanics((previous) => ({
+        ...previous,
+        [bookingId]: "",
+      }));
+
+      await loadDashboard();
+    } catch (err) {
+      const responseData = err.response?.data;
+
+      setError(
+        typeof responseData === "string"
+          ? responseData
+          : responseData?.message ||
+              (err.response?.status === 403
+                ? "Access denied. Please log in with an ADMIN account."
+                : err.response?.status === 404
+                  ? "Booking or mechanic not found. Refresh the dashboard."
+                  : err.response?.status === 409
+                    ? "Assignment conflict: the booking or mechanic may no longer be eligible. Refresh and try again."
+                    : "Could not assign mechanic. Please try again.")
+      );
+    } finally {
+      setAssigningBookingId(null);
+    }
+  };
+
   const totalBookings = bookings.length;
+
   const completedBookings = bookings.filter(
     (booking) => booking.status === "COMPLETED"
   ).length;
+
   const activeBookings = bookings.filter(
     (booking) =>
       !["COMPLETED", "CANCELLED"].includes(booking.status)
@@ -129,6 +195,10 @@ const results = await Promise.allSettled([
     minWidth: 140,
     flex: "1 1 140px",
   };
+
+  const availableMechanicList = mechanics.filter(
+    (mechanic) => mechanic.available === true
+  );
 
   return (
     <main
@@ -202,9 +272,7 @@ const results = await Promise.allSettled([
         }}
       >
         <h2>Create Mechanic Account</h2>
-        <p>
-          Create a mechanic login and profile for your workshop.
-        </p>
+        <p>Create a mechanic login and profile for your workshop.</p>
 
         <form
           onSubmit={createMechanic}
@@ -279,15 +347,19 @@ const results = await Promise.allSettled([
               }}
             >
               <h3>{mechanic.name}</h3>
+
               <p>
                 <strong>Mechanic ID:</strong> {mechanic.id}
               </p>
+
               <p>
                 <strong>Email:</strong> {mechanic.email}
               </p>
+
               <p>
                 <strong>Phone:</strong> {mechanic.phone || "Not provided"}
               </p>
+
               <p>
                 <strong>Availability:</strong>{" "}
                 {mechanic.available ? "Available" : "Currently assigned"}
@@ -305,43 +377,118 @@ const results = await Promise.allSettled([
         ) : bookings.length === 0 ? (
           <p>No bookings found.</p>
         ) : (
-          bookings.map((booking) => (
-            <article
-              key={booking.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                padding: 16,
-                marginTop: 12,
-              }}
-            >
-              <h3>Booking #{booking.id}</h3>
-              <p>
-                <strong>Customer:</strong>{" "}
-                {booking.customer?.name || "Not available"}
-              </p>
-              <p>
-                <strong>Vehicle:</strong>{" "}
-                {booking.vehicle?.make || booking.vehicle?.brand || ""}{" "}
-                {booking.vehicle?.model ||
-                  booking.vehicle?.vehicleModel ||
-                  "Vehicle"}
-              </p>
-              <p>
-                <strong>Status:</strong> {booking.status}
-              </p>
-              <p>
-                <strong>Assigned Mechanic:</strong>{" "}
-                {booking.mechanic?.name || "Not assigned"}
-              </p>
-              <p>
-                <strong>Estimated Cost:</strong>{" "}
-                {booking.estimatedCost != null
-                  ? `₹${booking.estimatedCost}`
-                  : "Not estimated"}
-              </p>
-            </article>
-          ))
+          bookings.map((booking) => {
+            const canAssign =
+              !booking.mechanic &&
+              !["COMPLETED", "CANCELLED"].includes(booking.status);
+
+            const selectedMechanicIsAvailable =
+              availableMechanicList.some(
+                (mechanic) =>
+                  String(mechanic.id) ===
+                  String(selectedMechanics[booking.id] || "")
+              );
+
+            return (
+              <article
+                key={booking.id}
+                style={{
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  padding: 16,
+                  marginTop: 12,
+                }}
+              >
+                <h3>Booking #{booking.id}</h3>
+
+                <p>
+                  <strong>Customer:</strong>{" "}
+                  {booking.customer?.name || "Not available"}
+                </p>
+
+                <p>
+                  <strong>Vehicle:</strong>{" "}
+                  {booking.vehicle?.make || booking.vehicle?.brand || ""}{" "}
+                  {booking.vehicle?.model ||
+                    booking.vehicle?.vehicleModel ||
+                    "Vehicle"}
+                </p>
+
+                <p>
+                  <strong>Status:</strong> {booking.status}
+                </p>
+
+                <p>
+                  <strong>Assigned Mechanic:</strong>{" "}
+                  {booking.mechanic?.name || "Not assigned"}
+                </p>
+
+                <p>
+                  <strong>Estimated Cost:</strong>{" "}
+                  {booking.estimatedCost != null
+                    ? `₹${booking.estimatedCost}`
+                    : "Not estimated"}
+                </p>
+
+                {canAssign && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      marginTop: 14,
+                      alignItems: "center",
+                    }}
+                  >
+                    <select
+                      aria-label={`Select mechanic for Booking ${booking.id}`}
+                      value={selectedMechanics[booking.id] || ""}
+                      onChange={(event) =>
+                        setSelectedMechanics((previous) => ({
+                          ...previous,
+                          [booking.id]: event.target.value,
+                        }))
+                      }
+                      disabled={assigningBookingId === booking.id}
+                      style={{
+                        padding: 9,
+                        minWidth: 220,
+                        maxWidth: "100%",
+                      }}
+                    >
+                      <option value="">Select an available mechanic</option>
+
+                      {availableMechanicList.map((mechanic) => (
+                        <option key={mechanic.id} value={mechanic.id}>
+                          {mechanic.name} (ID: {mechanic.id})
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => assignMechanic(booking.id)}
+                      disabled={
+                        assigningBookingId === booking.id ||
+                        !selectedMechanicIsAvailable
+                      }
+                    >
+                      {assigningBookingId === booking.id
+                        ? "Assigning..."
+                        : "Assign Mechanic"}
+                    </button>
+
+                    {availableMechanicList.length === 0 && (
+                      <p role="status">
+                        No available mechanics. Create a mechanic or finish an
+                        existing job first.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })
         )}
       </section>
     </main>
